@@ -8,17 +8,10 @@
 
 import Xml
 
-import Data.Bytes.Chunks (Chunks(ChunksNil,ChunksCons))
-import Data.Proxy (Proxy(..))
 import Test.Tasty (defaultMain,testGroup,TestTree)
 import Test.Tasty.HUnit ((@=?),testCase)
 
-import qualified Xml
 import qualified Data.Bytes as Bytes
-import qualified Data.List as List
-import qualified Data.Primitive as PM
-import qualified GHC.Exts as Exts
-import qualified Test.Tasty.HUnit as THU
 
 main :: IO ()
 main = defaultMain tests
