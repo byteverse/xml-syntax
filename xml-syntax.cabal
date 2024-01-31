@@ -1,7 +1,7 @@
 cabal-version:   2.4
 name:            xml-syntax
 synopsis:        Parse XML from bytes
-version:         0.1.0.0
+version:         0.1.0.1
 license:         BSD-3-Clause
 license-file:    LICENSE
 author:          Andrew Martin
