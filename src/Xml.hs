@@ -1,50 +1,52 @@
-{-# language BangPatterns #-}
-{-# language LambdaCase #-}
-{-# language MagicHash #-}
-{-# language NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Xml
-  ( Node(..)
-  , Content(..)
-  , Attribute(..)
+  ( Node (..)
+  , Content (..)
+  , Attribute (..)
   , decode
   ) where
 
-import Data.Word (Word8)
-import Data.Bytes (Bytes)
-import Data.Text.Short (ShortText)
-import Data.Primitive (SmallArray)
-import Data.Bytes.Parser (Parser)
-import GHC.Exts (Char(C#),Char#)
-import Data.Chunks (Chunks)
 import Data.Builder.ST (Builder)
+import Data.Bytes (Bytes)
+import Data.Bytes.Parser (Parser)
+import Data.Chunks (Chunks)
+import Data.Primitive (SmallArray)
+import Data.Text.Short (ShortText)
+import Data.Word (Word8)
+import GHC.Exts (Char (C#), Char#)
 
-import qualified Data.Chunks as Chunks
-import qualified Data.Text.Short as TS
-import qualified Data.Text.Short.Unsafe as TS
 import qualified Data.Builder.ST as Builder
 import qualified Data.Bytes as Bytes
 import qualified Data.Bytes.Parser as Parser
-import qualified Data.Bytes.Parser.Rebindable as R
 import qualified Data.Bytes.Parser.Latin as Latin
+import qualified Data.Bytes.Parser.Rebindable as R
 import qualified Data.Bytes.Parser.Unsafe as Unsafe
 import qualified Data.Bytes.Parser.Utf8 as Utf8
+import qualified Data.Chunks as Chunks
+import qualified Data.Text.Short as TS
+import qualified Data.Text.Short.Unsafe as TS
 
 data Node
   = Text !ShortText
   | Element {-# UNPACK #-} !Content
-  deriving (Show,Eq)
+  deriving (Show, Eq)
 
 data Content = Content
   { tag :: !ShortText
   , attributes :: !(SmallArray Attribute)
   , children :: !(SmallArray Node)
-  } deriving (Show,Eq)
+  }
+  deriving (Show, Eq)
 
 data Attribute = Attribute
   { name :: !ShortText
   , value :: !ShortText
-  } deriving (Show,Eq)
+  }
+  deriving (Show, Eq)
 
 decode :: Bytes -> Maybe Node
 decode !b = Parser.parseBytesMaybe elementNodeParser b
@@ -65,12 +67,12 @@ elementNodeParser = do
   Latin.any () >>= \case
     '>' -> do
       nodes <- childrenParser tag
-      pure (Element Content{tag,attributes,children=Chunks.concat nodes})
+      pure (Element Content {tag, attributes, children = Chunks.concat nodes})
     '/' -> do
       Latin.char () '>'
-      pure (Element Content{tag,attributes,children=mempty})
+      pure (Element Content {tag, attributes, children = mempty})
     _ -> Parser.fail ()
-      
+
 textNodeParser :: Parser () s Node
 textNodeParser = do
   raw <- Parser.takeWhile (\w -> w /= 0x3C)
@@ -80,33 +82,35 @@ textNodeParser = do
 
 -- This eats the closing tag as well.
 childrenParser ::
-     ShortText -- opening tag name, looking for a closing tag that matches
-  -> Parser () s (Chunks Node)
+  ShortText -> -- opening tag name, looking for a closing tag that matches
+  Parser () s (Chunks Node)
 childrenParser !tag = do
   b0 <- Parser.effect Builder.new
   childrenParserLoop tag b0
 
 childrenParserLoop ::
-     ShortText -- opening tag name, looking for a closing tag that matches
-  -> Builder s Node
-  -> Parser () s (Chunks Node)
-childrenParserLoop !tag !b0 = Latin.any () >>= \case
-  '<' -> Latin.any () >>= \case
-    '/' -> do
-      Utf8.shortText () tag
-      Parser.skipWhile isXmlSpace
-      Latin.char () '>'
-      Parser.effect (Builder.freeze b0)
+  ShortText -> -- opening tag name, looking for a closing tag that matches
+  Builder s Node ->
+  Parser () s (Chunks Node)
+childrenParserLoop !tag !b0 =
+  Latin.any () >>= \case
+    '<' ->
+      Latin.any () >>= \case
+        '/' -> do
+          Utf8.shortText () tag
+          Parser.skipWhile isXmlSpace
+          Latin.char () '>'
+          Parser.effect (Builder.freeze b0)
+        _ -> do
+          Unsafe.unconsume 2
+          node <- elementNodeParser
+          b1 <- Parser.effect (Builder.push node b0)
+          childrenParserLoop tag b1
     _ -> do
-      Unsafe.unconsume 2
-      node <- elementNodeParser
+      Unsafe.unconsume 1
+      node <- textNodeParser
       b1 <- Parser.effect (Builder.push node b0)
       childrenParserLoop tag b1
-  _ -> do
-    Unsafe.unconsume 1
-    node <- textNodeParser
-    b1 <- Parser.effect (Builder.push node b0)
-    childrenParserLoop tag b1
 
 isXmlSpace :: Word8 -> Bool
 isXmlSpace = \case
@@ -147,7 +151,7 @@ parserAttribute = do
   Latin.char () '='
   Parser.skipWhile isXmlSpace
   !value <- parserAttributeValue
-  pure Attribute{name,value}
+  pure Attribute {name, value}
 
 -- TODO: This is woefully incomplete
 parserAttributeValue :: Parser () s ShortText
@@ -166,14 +170,14 @@ parserAttributeValue = do
         Nothing -> Parser.fail ()
         Just tval -> pure tval
     _ -> Parser.fail ()
-  
+
 peekIsNameStartChar :: Parser () s Bool
 peekIsNameStartChar =
   Unsafe.cursor R.>>= \pos ->
-  Utf8.any# () R.>>= \c -> 
-  Unsafe.jump pos R.>>= \_ ->
-  R.pure (isNameStartChar c)
-  
+    Utf8.any# () R.>>= \c ->
+      Unsafe.jump pos R.>>= \_ ->
+        R.pure (isNameStartChar c)
+
 isNameStartChar :: Char# -> Bool
 isNameStartChar c = case C# c of
   ':' -> True
