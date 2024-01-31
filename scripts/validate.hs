@@ -1,10 +1,10 @@
-{-# language BangPatterns #-}
-{-# language LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 
-import qualified Xml
-import qualified System.IO as IO
 import qualified Data.Bytes as Bytes
 import qualified Data.Bytes.Chunks as Chunks
+import qualified System.IO as IO
+import qualified Xml
 
 main :: IO ()
 main = do
